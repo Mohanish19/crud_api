@@ -1,90 +1,66 @@
 const request = require('supertest');
 const fs = require('fs');
-const app = require('./main.js');
+const app = require('./main'); 
 
-describe('Tasks', () => {
-  const dataFilePath = './tasks.json';
+const dataFilePath = './tasks.json';
 
-  beforeEach(() => {
-    fs.writeFileSync(dataFilePath, '[]', 'utf8');
-  });
-
-  afterAll(() => {
+beforeEach(() => {
+  if (fs.existsSync(dataFilePath)) {
     fs.unlinkSync(dataFilePath);
-  });
+  }
+  fs.writeFileSync(dataFilePath, '[]');
+});
 
-  test('GET /tasks should return all tasks', async () => {
-    fs.writeFileSync(dataFilePath, JSON.stringify(tasks), 'utf8');
+test('GET', async () => {
+  const response = await request(app).get('/tasks');
+  expect(response.status).toBe(200);
+  expect(response.body).toEqual([]);
+});
+
+test('GET with the given ID', async () => {
+  const newItem = { id: 1, name: 'Item 1' };
+  fs.writeFileSync(dataFilePath, JSON.stringify([newItem]));
+
+  const response = await request(app).get('/tasks/1');
+  expect(response.status).toBe(200);
+  expect(response.body).toEqual(newItem);
+});
+
+test('PUT', async () => {
+  const newTasks = { id: 1, name: 'Item 1' };
+  fs.writeFileSync(dataFilePath, JSON.stringify([newTasks]));
+
+  const updatedTasks = { name: 'Updated Tasks' };
+
+  const response = await request(app)
+    .put('/tasks/id')
+    .send(updatedTasks);
+  expect(response.status).toBe(200);
+  const storedItems = JSON.parse(fs.readFileSync(dataFilePath));
+  expect(storedItems).toHaveLength(1);
+  expect(storedItems[0]).toEqual(expect.objectContaining(updatedTasks));
+});
 
 
-    const response = await request(app).get('/tasks');
-
-    
-    expect(response.statusCode).toBe(200);
-    expect(response.body).toEqual(tasks);
-  });
-
-  test('GET', async () => {
+test('POST', async () => {
+  const newItem = { name: 'New Item' };
   
-    fs.writeFileSync(dataFilePath, JSON.stringify([task]), 'utf8');
+  const response = await request(app).post('/api/items').send(newItem);
+  expect(response.status).toBe(201);
+  
+  const storedItems = JSON.parse(fs.readFileSync(dataFilePath));
+  expect(storedItems).toHaveLength(1);
+  expect(storedItems[0]).toEqual(expect.objectContaining(newItem));
+});
 
-    const response = await request(app).get(`/tasks/${taskId}`);
 
-
-    expect(response.statusCode).toBe(200);
-    expect(response.body).toEqual(task);
-  });
-
-  test('POST', async () => {
-
-    
-    const response = await request(app)
-      .post('/tasks')
-      .send(newTask);
-
-    expect(response.statusCode).toBe(201);
-    expect(response.body.title).toBe(newTask.title);
-    expect(response.body.description).toBe(newTask.description);
-
-    const tasksData = fs.readFileSync(dataFilePath, 'utf8');
-    const tasks = JSON.parse(tasksData);
-    expect(tasks.length).toBe(1);
-    expect(tasks[0].title).toBe(newTask.title);
-    expect(tasks[0].description).toBe(newTask.description);
-  });
-
-  test('PUT', async () => {
-    
-    fs.writeFileSync(dataFilePath, JSON.stringify([originalTask]), 'utf8');
-
-    const response = await request(app)
-      .put(`/tasks/${taskId}`)
-      .send(updatedTask);
-
-    expect(response.statusCode).toBe(200);
-    expect(response.body.title).toBe(updatedTask.title);
-    expect(response.body.description).toBe(updatedTask.description);
-
-    const tasksData = fs.readFileSync(dataFilePath, 'utf8');
-    const tasks = JSON.parse(tasksData);
-    expect(tasks.length).toBe(1);
-    expect(tasks[0].title).toBe(updatedTask.title);
-    expect(tasks[0].description).toBe(updatedTask.description);
-  });
-
-  test('DELETE', async () => {
-   
-    fs.writeFileSync(dataFilePath, JSON.stringify(tasks), 'utf8');
-
-    const response = await request(app).delete(`/tasks/${taskId}`);
-
-    expect(response.statusCode).toBe(200);
-    expect(response.body.message).toBe('Task deleted');
-    expect(response.body.task).toEqual(tasks[0]);
-
-    const tasksData = fs.readFileSync(dataFilePath, 'utf8');
-    const remainingTasks = JSON.parse(tasksData);
-    expect(remainingTasks.length).toBe(1);
-    expect(remainingTasks[0].id).toBe(2);
-  });
+test('DELETE', async () => {
+  const newItem = { id: 1, name: 'Item 1' };
+  fs.writeFileSync(dataFilePath, JSON.stringify([newItem]));
+  
+  const response = await request(app).delete('/tasks/1');
+  expect(response.status).toBe(200);
+  
+  const storedItems = JSON.parse(fs.readFileSync(dataFilePath));
+  expect(storedItems).toHaveLength(0);
 });
