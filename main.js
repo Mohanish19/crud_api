@@ -1,6 +1,9 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const fs = require('fs');
+const pgp = require('pg-promise')();
+// const fs = require('fs');
+
+const db = require('./db/db');
 
 const app = express();
 
@@ -9,87 +12,79 @@ const port = process.env.PORT;
 
 app.use(bodyParser.json());
 
-const tasksFile = './tasks.json';
+app.get('/tasks', async (req,res) => {
+  try{
+    const tasks = await db.any('SELECT * FROM tasks');
+    res.json(tasks);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error : 'Internal Server Error' });
+  }
+});
 
-
-function readTasksFromFile() {
+app.get('/tasks/:id', async (req,res) => {
+  const { id } = req.params;
   try {
-    const tasksData = fs.readFileSync(tasksFile, 'utf8');
-    return JSON.parse(tasksData);
-  } catch (error) {
-    console.error('Error reading tasks file:', error);
-    return [];
+    const task = await db.oneOrNone('SELECT * FROM tasks WHERE id = $1' , id);
+    if(!task) {
+      return res.status(404).json({ error : 'task not found' });
+    }
+    res.json(task);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error : 'Internal Server Error' });
   }
-}
+});
 
-
-function writeTasksToFile(tasks) {
+app.post('/tasks', async (req,res) => {
+  // const { id } = req.params;
+  const { id , title , description } = req.body;
   try {
-    fs.writeFileSync(tasksFile, JSON.stringify(tasks, null, 2));
-  } catch (error) {
-    console.error('Error writing tasks to file:', error);
+    const task = await db.one(
+      'INSERT INTO tasks (id , title , description) VALUES ($1, $2, $3) RETURNING *',
+      [id, title , description]
+    );
+      res.status(201).json(task);
+  } catch ( err ) {
+      console.error(err);
+      res.status(500).json({ error: 'Internal Server Error' });
   }
-}
-
-let tasks = readTasksFromFile();
-
-app.post('/tasks', (req, res) => {
-  const { title, description } = req.body;
-  const task = {
-    id: tasks.length + 1,
-    title,
-    description,
-  };
-  tasks.push(task);
-  writeTasksToFile(tasks);
-  res.status(201).json(task);
 });
 
-
-app.get('/tasks/:taskId', (req, res) => {
-  const taskId = parseInt(req.params.taskId);
-  const task = tasks.find((task) => task.id === taskId);
-  if (task) {
+app.put('/tasks/:id' , async (req,res) => {
+  const { id } = req.params;
+  const{ title , description } = req.body;
+  try {
+    const task = await db.oneOrNone(
+      'UPDATE tasks SET title = $1, description = $2 WHERE id = $3 RETURNING *',
+      [title, description, id]
+    );
+    if(!task) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     res.json(task);
-  } else {
-    res.status(404).json({ error: 'Task not found' });
+  }catch (err) {
+    console.error (err);
+    res.status(500).json({ error : 'Internal Server Error' });
   }
 });
 
-
-app.get('/tasks', (req, res) => {
-  res.json(tasks);
-});
-
-
-app.put('/tasks/:taskId', (req, res) => {
-  const taskId = parseInt(req.params.taskId);
-  const task = tasks.find((task) => task.id === taskId);
-  if (task) {
-    task.title = req.body.title;
-    task.description = req.body.description;
-    writeTasksToFile(tasks);
-    res.json(task);
-  } else {
-    res.status(404).json({ error: 'Task not found' });
+app.delete('/tasks/:id' , async(req,res) => {
+  const { id } = req.params;
+  try {
+    const task = await db.oneOrNone('DELETE FROM tasks WHERE id = $1 RETURNING *', id)
+    if(!task) {
+      return res.status(404).json({ error: 'task not fount' });
+    }
+    res.json({ message: 'User deleted succesfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-
-app.delete('/tasks/:taskId', (req, res) => {
-  const taskId = parseInt(req.params.taskId);
-  const taskIndex = tasks.findIndex((task) => task.id === taskId);
-  if (taskIndex !== -1) {
-    tasks.splice(taskIndex, 1);
-    writeTasksToFile(tasks);
-    res.json({ message: 'Task deleted' });
-  } else {
-    res.status(404).json({ error: 'Task not found' });
-  }
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });
-
-// app.listen(port, () => {
-//   console.log(`Server running on port ${port}`);
-// });
 
 module.exports = app;
