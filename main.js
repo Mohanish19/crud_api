@@ -1,7 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const pgp = require('pg-promise')();
-// const fs = require('fs');
+
 
 const db = require('./db/db');
 
@@ -12,9 +12,27 @@ const port = process.env.PORT;
 
 app.use(bodyParser.json());
 
+function insertDataWithTimestamp(eventData) {
+  eventData.created_time = new Date(); 
+  return db.one(
+    'INSERT INTO tasks (id, title, description, created_time) VALUES ($1, $2, $3, $4) RETURNING *',
+    [eventData.id, eventData.title, eventData.description, eventData.created_time]
+  );
+}
+
+function updateDataWithTimestamp(id, eventData) {
+  eventData.updated_time = new Date(); // Set the updated_time to the current timestamp
+  return db.one(
+    'UPDATE tasks SET title = $1, description = $2, updated_time = $3 WHERE id = $4 RETURNING *',
+    [eventData.title, eventData.description, eventData.updated_time, id]
+  );
+}
+
 app.get('/tasks', async (req,res) => {
   const limit = parseInt(req.query.limit, 10);
   const skip = parseInt(req.query.skip, 0);
+  const order = req.query.order || 'desc';
+  const orderBy = req.query.orderBy || 'created_time';
 
   try {
     let query = 'SELECT * FROM tasks';
@@ -25,6 +43,12 @@ app.get('/tasks', async (req,res) => {
 
     if (!isNaN(skip)) {
       query += ' OFFSET $2';
+    }
+
+    if (orderBy === 'created_time' || orderBy === 'updated_time') {
+      query += ` ORDER BY ${orderBy} ` +  order.toUpperCase();
+    } else {
+      query += ' ORDER BY created_time ' + order.toUpperCase(); 
     }
 
     const result = await db.any(query, [limit, skip]);
@@ -49,38 +73,39 @@ app.get('/tasks/:id', async (req,res) => {
   }
 });
 
-app.post('/tasks', async (req,res) => {
-  // const { id } = req.params;
-  const { id , title , description } = req.body;
+app.post('/tasks', async (req, res) => {
+  const eventData = {
+    id: req.body.id,
+    title: req.body.title,
+    description: req.body.description,
+  };
+
   try {
-    const task = await db.one(
-      'INSERT INTO tasks (id , title , description) VALUES ($1, $2, $3) RETURNING *',
-      [id, title , description]
-    );
-      res.status(201).json(task);
-  } catch ( err ) {
-      console.error(err);
-      res.status(500).json({ error: 'Internal Server Error' });
+    const insertedData = await insertDataWithTimestamp(eventData);
+    res.json(insertedData);
+  } catch (err) {
+    console.error('Error inserting data:', err);
+    res.status(500).send('Internal Server Error');
   }
 });
 
-app.put('/tasks/:id' , async (req,res) => {
-  const { id } = req.params;
-  const{ title , description } = req.body;
+
+app.put('/tasks/:id', async (req, res) => {
+  const id = req.params.id;
+  const eventData = {
+    title: req.body.title,
+    description: req.body.description,
+  };
+
   try {
-    const task = await db.oneOrNone(
-      'UPDATE tasks SET title = $1, description = $2 WHERE id = $3 RETURNING *',
-      [title, description, id]
-    );
-    if(!task) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json(task);
-  }catch (err) {
-    console.error (err);
-    res.status(500).json({ error : 'Internal Server Error' });
+    const updatedData = await updateDataWithTimestamp(id, eventData);
+    res.json(updatedData);
+  } catch (err) {
+    console.error('Error updating data:', err);
+    res.status(500).send('Internal Server Error');
   }
 });
+
 
 app.delete('/tasks/:id' , async(req,res) => {
   const { id } = req.params;
