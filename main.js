@@ -21,7 +21,7 @@ function insertDataWithTimestamp(eventData) {
 }
 
 function updateDataWithTimestamp(id, eventData) {
-  eventData.updated_time = new Date(); // Set the updated_time to the current timestamp
+  eventData.updated_time = new Date(); 
   return db.one(
     'UPDATE tasks SET title = $1, description = $2, updated_time = $3 WHERE id = $4 RETURNING *',
     [eventData.title, eventData.description, eventData.updated_time, id]
