@@ -13,12 +13,25 @@ const port = process.env.PORT;
 app.use(bodyParser.json());
 
 app.get('/tasks', async (req,res) => {
-  try{
-    const tasks = await db.any('SELECT * FROM tasks');
-    res.json(tasks);
+  const limit = parseInt(req.query.limit, 10);
+  const skip = parseInt(req.query.skip, 0);
+
+  try {
+    let query = 'SELECT * FROM tasks';
+
+    if (!isNaN(limit)) {
+      query += ' LIMIT $1';
+    }
+
+    if (!isNaN(skip)) {
+      query += ' OFFSET $2';
+    }
+
+    const result = await db.any(query, [limit, skip]);
+    res.json(result);
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error : 'Internal Server Error' });
+    res.status(500).send('Internal Server Error');
   }
 });
 
