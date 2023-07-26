@@ -80,6 +80,10 @@ app.post('/tasks', async (req, res) => {
     description: req.body.description,
   };
 
+  if (!eventData.title || !eventData.description) {
+    return res.status(400).json({ error: 'Title and description are required fields.' });
+  }
+  
   try {
     const insertedData = await insertDataWithTimestamp(eventData);
     res.json(insertedData);
@@ -102,7 +106,7 @@ app.put('/tasks/:id', async (req, res) => {
     res.json(updatedData);
   } catch (err) {
     console.error('Error updating data:', err);
-    res.status(500).send('Internal Server Error');
+    res.status(404).send('Internal Server Error');
   }
 });
 
