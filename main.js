@@ -15,18 +15,20 @@ app.use(bodyParser.json());
 function insertDataWithTimestamp(eventData) {
   eventData.created_time = new Date(); 
   return db.one(
-    'INSERT INTO tasks (id, title, description, created_time) VALUES ($1, $2, $3, $4) RETURNING *',
-    [eventData.id, eventData.title, eventData.description, eventData.created_time]
+    'INSERT INTO tasks (id, title, description, created_time, status) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+    [eventData.id, eventData.title, eventData.description, eventData.created_time, eventData.status]
   );
 }
+
 
 function updateDataWithTimestamp(id, eventData) {
   eventData.updated_time = new Date(); 
   return db.one(
-    'UPDATE tasks SET title = $1, description = $2, updated_time = $3 WHERE id = $4 RETURNING *',
-    [eventData.title, eventData.description, eventData.updated_time, id]
+    'UPDATE tasks SET title = $1, description = $2, updated_time = $3, status = $4 WHERE id = $5 RETURNING *',
+    [eventData.title, eventData.description, eventData.updated_time, eventData.status, id]
   );
 }
+
 
 app.get('/tasks', async (req,res) => {
   const limit = parseInt(req.query.limit, 10);
@@ -35,6 +37,9 @@ app.get('/tasks', async (req,res) => {
   const orderBy = req.query.orderBy || 'created_time';
 
   try {
+    
+    const groupBy = req.query.groupBy || null;
+
     let query = 'SELECT * FROM tasks';
 
     if (!isNaN(limit)) {
@@ -43,6 +48,10 @@ app.get('/tasks', async (req,res) => {
 
     if (!isNaN(skip)) {
       query += ' OFFSET $2';
+    }
+
+    if (groupBy) {
+      query += ` GROUP BY ${groupBy}`;
     }
 
     if (orderBy === 'created_time' || orderBy === 'updated_time') {
