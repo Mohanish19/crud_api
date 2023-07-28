@@ -29,18 +29,24 @@ function updateDataWithTimestamp(id, eventData) {
   );
 }
 
-
-app.get('/tasks', async (req,res) => {
+app.get('/tasks', async (req, res) => {
   const limit = parseInt(req.query.limit, 10);
   const skip = parseInt(req.query.skip, 0);
   const order = req.query.order || 'desc';
   const orderBy = req.query.orderBy || 'created_time';
-
+  const groupBy = req.query.groupBy || null; 
   try {
-    
-    const groupBy = req.query.groupBy || null;
+    let query = 'SELECT ';
 
-    let query = 'SELECT * FROM tasks';
+    if (groupBy === 'status') {
+      query += 'status, COUNT(*) AS task_count FROM (SELECT status, created_time FROM tasks';
+    } else {
+      query += '* FROM tasks';
+    }
+
+    if (groupBy === 'status') {
+      query += ') AS task_subquery GROUP BY status, created_time';
+    }
 
     if (!isNaN(limit)) {
       query += ' LIMIT $1';
@@ -48,10 +54,6 @@ app.get('/tasks', async (req,res) => {
 
     if (!isNaN(skip)) {
       query += ' OFFSET $2';
-    }
-
-    if (groupBy) {
-      query += ` GROUP BY ${groupBy}`;
     }
 
     if (orderBy === 'created_time' || orderBy === 'updated_time') {
@@ -87,10 +89,11 @@ app.post('/tasks', async (req, res) => {
     id: req.body.id,
     title: req.body.title,
     description: req.body.description,
+    status : req.body.status,
   };
 
-  if (!eventData.title || !eventData.description) {
-    return res.status(400).json({ error: 'Title and description are required fields.' });
+  if (!eventData.title || !eventData.description || !eventData.status) {
+    return res.status(400).json({ error: 'Title and description  and status are required fields.' });
   }
   
   try {
@@ -102,13 +105,17 @@ app.post('/tasks', async (req, res) => {
   }
 });
 
-
-app.put('/tasks/:id', async (req, res) => {
+ app.put('/tasks/:id', async (req, res) => {
   const id = req.params.id;
   const eventData = {
     title: req.body.title,
     description: req.body.description,
-  };
+    status: req.body.status,
+   };
+
+if (!eventData.title || !eventData.description || !eventData.status) {
+  return res.status(400).json({ error: 'Title, description, and status are required fields.' });
+}
 
   try {
     const updatedData = await updateDataWithTimestamp(id, eventData);
