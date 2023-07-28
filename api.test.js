@@ -3,6 +3,9 @@ const expect = chai.expect;
 const app = require('./main'); 
 const supertest = require('supertest');
 
+const request = supertest(app);
+
+
 describe('App', () => {
   let taskId;
 
@@ -61,7 +64,7 @@ describe('App', () => {
     const task = response.body;
 
     expect(task.id).to.equal(taskId);
-    expect(task).to.have.all.keys('id', 'title', 'description', 'created_time', 'updated_time');
+    expect(task).to.have.all.keys('id', 'title', 'description', 'created_time', 'updated_time' , 'status');
   });
 
   it('gets all tasks', async () => {
@@ -112,5 +115,18 @@ describe('App', () => {
       .post('/tasks')
       .send(invalidTask)
       .expect(400);
+  });
+  
+  it('should return tasks without grouping when groupBy parameter is invalid', (done) => {
+    request
+      .get('/tasks?groupBy=invalid')
+      .expect(200)
+      .end((err, res) => {
+        if (err) return done(err);
+        expect(res.body).to.be.an('array');
+        expect(res.body.length).to.be.greaterThan(0);
+
+        done();
+      });
   });
 });
