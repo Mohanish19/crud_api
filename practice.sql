@@ -94,5 +94,90 @@ f := 70.0/3.0;
 dbms_output.put_line(f);
 
 END
-
 /
+
+
+--  Problems on Functions
+
+-- Calculate square of Number
+CREATE OR REPLACE FUNCTION calculate_sqr(num NUMBER) RETURN NUMBER IS
+    square NUMBER;
+BEGIN
+    square := num * num;
+    RETURN square;
+END;
+
+-- Convert Celcius to Fahrenheit 
+CREATE OR REPLACE FUNCTION celcius_to_fahrenheit(celcius NUMBER) RETURN NUMBER IS
+    fahrenheit NUMBER;
+BEGIN
+    fahrenheit := (celcius * 9/5) + 32;
+    RETURN fahrenheit;
+END;
+
+CREATE OR REPLACE FUNCTION even_number(num NUMBER) RETURN BOOLEAN IS
+BEGIN
+    IF num MOD 2 = 0 THEN
+        RETURN TRUE;
+    ELSE
+        RETURN FALSE;
+    END IF;
+END;
+
+-- Find greatest of three numbers
+
+CREATE OR REPLACE FUNCTION find_greatest(num1 NUMBER, num2 NUMBER, num3 NUMBER) RETURN NUMBER IS
+    greatest_num NUMBER;
+BEGIN
+    IF num1 >= num2 AND num1 >= num3 THEN
+    greatest_num := num1;
+    ELSE IF num2 >= num1 AND num2 >= num3 THEN
+    greatest_num := num2;
+    ELSE 
+    greatest_num := num3;
+    END IF;
+    RETURN greatest_num;
+END;
+
+-- Factorial of a Number using Recursion 
+
+CREATE OR REPLACE FUNCTION factorial_recursive(num NUMBER) RETURN NUMBER IS
+BEGIN 
+    IF num = 0 THEN
+        RETURN 1;
+    ELSE 
+        RETURN num * factorial_recursive(num - 1);
+    END IF;
+END;
+
+-- Check if a String is Palindrome:
+CREATE OR REPLACE FUNCTION is_palindrome(input_str VARCHAR2) RETURN BOOLEAN IS
+    reversed_str VARCHAR2(100);
+BEGIN
+    reversed_str := REVERSE(input_str);
+    IF input_str = reversed_str THEN
+        RETURN TRUE;
+    ELSE 
+        RETURN FALSE;
+    END IF;
+END;
+
+--  Calculate fibonacci Number
+
+CREATE OR REPLACE FUNCTION fib(n NUMBER) RETURN NUMBER IS
+BEGIN 
+    IF  n <= 0 THEN
+        RETURN 0;
+    ELSE IF n = 1 THEN
+        RETURN 1;
+    ELSE
+        RETURN fib(n - 1) + ( n - 2 );
+    END IF;
+END;
+
+-- Convert Minutes to Hours and Minutes
+CREATE OR REPLACE FUNCTION min_to_hours_min(total_min NUMBER) RETURN NUMBER IS
+    hours NUMBER;
+    remaining_min := total_min MOD 60;
+    RETURN TO_CHAR(hours) || ' hours ' || TO_CHAR(remaining_min) || ' minutes';
+END;
