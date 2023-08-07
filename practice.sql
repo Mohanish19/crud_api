@@ -1,183 +1,138 @@
--- Hello World
-DECLARE 
-message varchar2(100) := 'Hello World';
-BEGIN
-dbms_output.put_line(message);
-END
-/
-
--- Area of rectangle 
+-- To create a task (/post) method
+CREATE OR REPLACE FUNCTION create_task(title text, description text, status text, parent_task_id integer DEFAULT NULL, parent_subtask_id integer DEFAULT NULL)
+RETURNS TABLE (id integer, title text, description text, created_time timestamp, status text, task_id integer, parent_subtask_id integer)
+AS $$
 DECLARE
-    len NUMBER := 5;
-    width NUMBER := 3;
-    area NUMBER;
+  parent_task_id_found integer;
+  parent_subtask_id_found integer;
 BEGIN
-    area := len * width;
-    dbms_output.put_line('Area: ' || area);
-END
-/
-
--- Maximum of two number 
-
-DECLARE
-    a NUMBER := 10;
-    b NUMBER := 20;
-    max NUMBER;
-BEGIN
-    IF a > b THEN
-    max := a;
-    ELSE 
-    max := b;
+  IF parent_task_id IS NOT NULL THEN
+    SELECT id INTO parent_task_id_found FROM subtasks WHERE id = parent_task_id;
+    IF parent_task_id_found IS NULL THEN
+      RAISE EXCEPTION 'Parent task not found';
     END IF;
-    dbms_output.put_line('Maximum: ' || max);
-END
-/
+  END IF;
 
--- Factorial
-
-DECLARE
-    a NUMBER := 5;
-    factorial NUMBER := 1;
-BEGIN
-    FOR i IN 1..a LOOP
-    factorial := factorial * i;
-    END LOOP
-    dbms_output.put_line('Factorial of ' || a || ':' || factorial);
-END
-/
-
--- Display Employee Names
-
-DECLARE
-    emp_name varchar2(100);
-    CURSOR employee_cur IS
-    SELECT first_name || ' ' || last_name AS full_name
-    FROM employee;
-BEGIN
-    OPEN employee_cur;
-    LOOP
-    FETCH employee_cur INTO emp_name;
-    EXIT WHEN employee_cur%NOTFOUND;
-    dbms_output.put_line(emp_name);
-    END LOOP
-    CLOSE employee_cur;
-END;
-/
-
--- Average of Numbers
-
-DECLARE
-    total NUMBER := 0;
-    count NUMBER := 0;
-    avg NUMBER;
-BEGIN
-    FOR i IN 1..10 LOOP
-    total := total + i;
-    count++;
-    END LOOP;
-    avg := total / count;
-    dbms_output.put_line('Average: ' || avg);
-END
-/
-
-
--- Basic maths problem
-DECLARE 
-a integer := 10;
-b integer := 20;
-c integer;
-f real
-BEGIN
-c := a + b;
-dbms_output.put_line(c);
-f := 70.0/3.0;
-dbms_output.put_line(f);
-
-END
-/
-
-
---  Problems on Functions
-
--- Calculate square of Number
-CREATE OR REPLACE FUNCTION calculate_sqr(num NUMBER) RETURN NUMBER IS
-    square NUMBER;
-BEGIN
-    square := num * num;
-    RETURN square;
-END;
-
--- Convert Celcius to Fahrenheit 
-CREATE OR REPLACE FUNCTION celcius_to_fahrenheit(celcius NUMBER) RETURN NUMBER IS
-    fahrenheit NUMBER;
-BEGIN
-    fahrenheit := (celcius * 9/5) + 32;
-    RETURN fahrenheit;
-END;
-
-CREATE OR REPLACE FUNCTION even_number(num NUMBER) RETURN BOOLEAN IS
-BEGIN
-    IF num MOD 2 = 0 THEN
-        RETURN TRUE;
-    ELSE
-        RETURN FALSE;
+  IF parent_subtask_id IS NOT NULL THEN
+    SELECT id INTO parent_subtask_id_found FROM subtasks WHERE id = parent_subtask_id;
+    IF parent_subtask_id_found IS NULL THEN
+      RAISE EXCEPTION 'Parent subtask not found';
     END IF;
+  END IF;
+
+  IF parent_task_id IS NOT NULL OR parent_subtask_id IS NOT NULL THEN
+    -- Creating a subtask
+    INSERT INTO subtasks (title, description, created_time, status, task_id, parent_subtask_id)
+    VALUES (title, description, NOW(), status, COALESCE(parent_task_id, NULL), parent_subtask_id)
+    RETURNING id, title, description, created_time, status, task_id, parent_subtask_id INTO id, title, description, created_time, status, task_id, parent_subtask_id;
+
+  ELSE
+    -- Creating a parent task
+    INSERT INTO subtasks (title, description, created_time, status, task_id, parent_subtask_id)
+    VALUES (title, description, NOW(), status, NULL, NULL)
+    RETURNING id, title, description, created_time, status, task_id, parent_subtask_id INTO id, title, description, created_time, status, task_id, parent_subtask_id;
+
+  END IF;
+
+  RETURN;
 END;
+$$ LANGUAGE plpgsql;
 
--- Find greatest of three numbers
+-- get method
 
-CREATE OR REPLACE FUNCTION find_greatest(num1 NUMBER, num2 NUMBER, num3 NUMBER) RETURN NUMBER IS
-    greatest_num NUMBER;
+CREATE OR REPLACE FUNCTION get_tasks(limit integer, skip integer, order_by text, order text, group_by text DEFAULT NULL)
+RETURNS TABLE (id integer, title text, description text, created_time timestamp, status text, task_id integer, parent_subtask_id integer, task_count integer)
+AS $$
 BEGIN
-    IF num1 >= num2 AND num1 >= num3 THEN
-    greatest_num := num1;
-    ELSE IF num2 >= num1 AND num2 >= num3 THEN
-    greatest_num := num2;
-    ELSE 
-    greatest_num := num3;
-    END IF;
-    RETURN greatest_num;
+  IF group_by = 'status' THEN
+    -- Get tasks grouped by status
+    RETURN QUERY
+    SELECT status, COUNT(*) AS task_count
+    FROM subtasks
+    GROUP BY status
+    ORDER BY CASE WHEN order_by = 'created_time' OR order_by = 'updated_time' THEN order_by END || ' ' || order
+    LIMIT limit
+    OFFSET skip;
+  ELSE
+    -- Get tasks without grouping
+    RETURN QUERY
+    SELECT *
+    FROM subtasks
+    ORDER BY CASE WHEN order_by = 'created_time' OR order_by = 'updated_time' THEN order_by END || ' ' || order
+    LIMIT limit
+    OFFSET skip;
+  END IF;
 END;
+$$ LANGUAGE plpgsql;
 
--- Factorial of a Number using Recursion 
 
-CREATE OR REPLACE FUNCTION factorial_recursive(num NUMBER) RETURN NUMBER IS
-BEGIN 
-    IF num = 0 THEN
-        RETURN 1;
-    ELSE 
-        RETURN num * factorial_recursive(num - 1);
-    END IF;
-END;
+--  get/id methofd
 
--- Check if a String is Palindrome:
-CREATE OR REPLACE FUNCTION is_palindrome(input_str VARCHAR2) RETURN BOOLEAN IS
-    reversed_str VARCHAR2(100);
+CREATE OR REPLACE FUNCTION get_task_with_subtasks(task_id integer)
+RETURNS TABLE (id integer, title text, description text, created_time timestamp, status text, task_id integer, parent_subtask_id integer)
+AS $$
 BEGIN
-    reversed_str := REVERSE(input_str);
-    IF input_str = reversed_str THEN
-        RETURN TRUE;
-    ELSE 
-        RETURN FALSE;
-    END IF;
-END;
+  RETURN QUERY
+  WITH RECURSIVE subtasks_recursive AS (
+    SELECT id, title, description, created_time, status, task_id, parent_subtask_id
+    FROM subtasks
+    WHERE id = task_id AND parent_subtask_id IS NULL
 
---  Calculate fibonacci Number
+    UNION ALL
 
-CREATE OR REPLACE FUNCTION fib(n NUMBER) RETURN NUMBER IS
-BEGIN 
-    IF  n <= 0 THEN
-        RETURN 0;
-    ELSE IF n = 1 THEN
-        RETURN 1;
-    ELSE
-        RETURN fib(n - 1) + ( n - 2 );
-    END IF;
+    SELECT s.id, s.title, s.description, s.created_time, s.status, s.task_id, s.parent_subtask_id
+    FROM subtasks_recursive sr JOIN subtasks s ON sr.id = s.parent_subtask_id
+  )
+  SELECT * FROM subtasks_recursive;
 END;
+$$ LANGUAGE plpgsql;
 
--- Convert Minutes to Hours and Minutes
-CREATE OR REPLACE FUNCTION min_to_hours_min(total_min NUMBER) RETURN NUMBER IS
-    hours NUMBER;
-    remaining_min := total_min MOD 60;
-    RETURN TO_CHAR(hours) || ' hours ' || TO_CHAR(remaining_min) || ' minutes';
+
+-- put method
+
+CREATE OR REPLACE FUNCTION update_task(id integer, title text, description text, status text, parent_subtask_id integer DEFAULT NULL)
+RETURNS TABLE (id integer, title text, description text, created_time timestamp, updated_time timestamp, status text, task_id integer, parent_subtask_id integer)
+AS $$
+BEGIN
+  IF parent_subtask_id = 'PROMOTE' THEN
+    -- Promote the subtask to an independent task (remove parent_subtask_id)
+    RETURN QUERY
+    UPDATE subtasks
+    SET title = title, description = description, updated_time = NOW(), status = status, parent_subtask_id = NULL
+    WHERE id = id
+    RETURNING *;
+  ELSE
+    -- Check if the task or subtask exists in the subtasks table
+    RETURN QUERY
+    UPDATE subtasks
+    SET title = title, description = description, updated_time = NOW(), status = status, parent_subtask_id = parent_subtask_id
+    WHERE id = id AND (parent_subtask_id IS NULL OR parent_subtask_id = parent_subtask_id)
+    RETURNING *;
+  END IF;
 END;
+$$ LANGUAGE plpgsql;
+
+-- delete method
+
+CREATE OR REPLACE FUNCTION delete_task_with_subtasks(task_id integer)
+RETURNS void
+AS $$
+BEGIN
+  -- Check if the parent task exists
+  IF NOT EXISTS (SELECT 1 FROM subtasks WHERE id = task_id AND parent_subtask_id IS NULL) THEN
+    RAISE EXCEPTION 'Parent task not found';
+  END IF;
+
+  -- Begin a transaction to perform deletion
+  BEGIN
+    -- Delete all associated subtasks
+    DELETE FROM subtasks WHERE task_id = (SELECT task_id FROM subtasks WHERE id = task_id);
+
+    -- Delete the parent task
+    DELETE FROM subtasks WHERE id = task_id AND parent_subtask_id IS NULL;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RAISE EXCEPTION 'Failed to delete parent task and associated subtasks';
+  END;
+END;
+$$ LANGUAGE plpgsql;
