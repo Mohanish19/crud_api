@@ -30,34 +30,37 @@ $$ LANGUAGE plpgsql;
 
 -- Put 
 
-CREATE OR REPLACE FUNCTION update_task(
-    task_id integer,
-    event_data jsonb
-) RETURNS jsonb AS $$
+CREATE OR REPLACE FUNCTION public.update_task(
+	p_task_id integer,
+	p_event_data jsonb)
+    RETURNS jsonb
+    
+AS $BODY$
 DECLARE
-    result jsonb;
+    v_result jsonb;
 BEGIN
-    IF NOT (event_data ? 'title' AND event_data ? 'description' AND event_data ? 'status') THEN
+
+    IF NOT (p_event_data ? 'title' AND p_event_data ? 'description' AND p_event_data ? 'status') THEN
         RAISE EXCEPTION 'Title, description, and status are required fields.';
     END IF;
 
-    event_data = event_data || jsonb_build_object('updated_time', now());
+    p_event_data = p_event_data || jsonb_build_object('updated_time', now());
 
-    UPDATE subtasks
+    UPDATE subtasks AS s
     SET
-        title = event_data->>'title',
-        description = event_data->>'description',
-        status = event_data->>'status',
-        parent_subtask_id = (event_data->>'parent_subtask_id')::integer
+        title = p_event_data->>'title',
+        description = p_event_data->>'description',
+        status = p_event_data->>'status',
+        parent_subtask_id = (p_event_data->>'parent_subtask_id')::integer
     WHERE
-        subtasks.id = task_id
-    RETURNING to_jsonb(subtasks.*) INTO result;
+        s.id = p_task_id
+    RETURNING to_jsonb(s.*) INTO v_result;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Task or subtask not found';
     END IF;
 
-    RETURN result;
+    RETURN v_result;
 EXCEPTION
     WHEN OTHERS THEN
         RAISE NOTICE 'Error updating data: %', SQLERRM;

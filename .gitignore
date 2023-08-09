@@ -1,3 +1,6 @@
 node_modules/
 .env
 rough.js
+rough.sql
+app.js
+demo.js
