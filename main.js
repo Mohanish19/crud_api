@@ -1,7 +1,10 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const pgp = require("pg-promise")();
+const swaggerUi = require('swagger-ui-express');
+const YAML = require(yamljs);
 const db = require("./db/db");
+const swaggerDocument = YAML.load('./openapi.yaml');
 
 const app = express();
 
@@ -9,6 +12,7 @@ require("dotenv").config();
 const port = process.env.PORT;
 
 app.use(bodyParser.json());
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 function insertDataWithTimestamp(eventData) {
   eventData.created_time = new Date();
