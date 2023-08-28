@@ -1,0 +1,153 @@
+openapi: 3.0.0
+info:
+  title: API Documentation
+  description: Documentation for the API endpoints.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000  # Update with your server's URL
+
+paths:
+  /tasks:
+    post:
+      summary: Create a new task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewTask'
+      responses:
+        '200':
+          description: Task created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          description: Bad request. Missing or invalid data.
+        '500':
+          description: Internal server error.
+
+    get:
+      summary: Get all tasks
+      responses:
+        '200':
+          description: List of tasks retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '500':
+          description: Internal server error.
+
+  /tasks/{taskId}:
+    parameters:
+      - in: path
+        name: taskId
+        required: true
+        schema:
+          type: integer
+        description: The ID of the task.
+    put:
+      summary: Update a task by ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatedTask'
+      responses:
+        '200':
+          description: Task updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '404':
+          description: Task not found.
+        '500':
+          description: Internal server error.
+
+    get:
+      summary: Get a task by ID
+      responses:
+        '200':
+          description: Task retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '404':
+          description: Task not found.
+        '500':
+          description: Internal server error.
+
+    delete:
+      summary: Delete a task by ID
+      responses:
+        '204':
+          description: Task deleted successfully.
+        '404':
+          description: Task not found.
+        '500':
+          description: Internal server error.
+
+  /tasks?groupBy={groupByParam}:
+    parameters:
+      - in: query
+        name: groupByParam
+        schema:
+          type: string
+        description: Parameter to specify grouping (if applicable).
+    get:
+      summary: Get tasks with optional grouping
+      responses:
+        '200':
+          description: List of tasks retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '400':
+          description: Bad request. Invalid groupBy parameter.
+        '500':
+          description: Internal server error.
+
+components:
+  schemas:
+    NewTask:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+
+    UpdatedTask:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        created_time:
+          type: string
+        updated_time:
+          type: string
+        status:
+          type: string
