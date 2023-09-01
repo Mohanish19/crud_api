@@ -2,7 +2,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const pgp = require("pg-promise")();
 const swaggerUi = require('swagger-ui-express');
-const YAML = require(yamljs);
+const YAML = require('yamljs');
 const db = require("./db/db");
 const swaggerDocument = YAML.load('./openapi.yaml');
 
